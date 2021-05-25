@@ -8,7 +8,6 @@ class SingleEntryPlugin{
     compiler.hooks.make.tapAsync('SingleEntryPlugin', (compilation, callback)=>{
       const { context, entry, name } = this;
       compilation.addEntry(context, entry, name, callback);
-
     })
   }
 }
