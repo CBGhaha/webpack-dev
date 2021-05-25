@@ -1,10 +1,12 @@
- const { Tapable, AsyncSeriesHook } = require('tapable');
+ const { Tapable, AsyncSeriesHook, AsyncParallelHook, SyncBailHook } = require('tapable');
 class Compiler extends Tapable{
   constructor(context){
     super();
     this.context = context;
     this.hooks = {
-      done: new AsyncSeriesHook(['stats'])
+      done: new AsyncSeriesHook(['stats']),
+      entryOption: new SyncBailHook('context', 'entry'),
+      mack: new AsyncParallelHook(['compilation']),
     }
   }
   run(callback){
@@ -12,10 +14,10 @@ class Compiler extends Tapable{
     callback(null, {
       toJSON(){
         return {
-          entries: true, // 显示所有入口
-          chunks: true, // 显示所有代码块
-          module: true, // 显示所有模块
-          assets: true //显示所有打包好的文件
+          entries: [], // 显示所有入口
+          chunks: [], // 显示所有代码块
+          modules: [], // 显示所有模块
+          assets: [] //显示所有打包好的文件
         }
       }
     })

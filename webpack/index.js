@@ -1,5 +1,6 @@
 const Compiler = require('./Compiler');
-const NodeEnvironmentPlugin = require('./node/NodeEnvironmentPlugin')
+const NodeEnvironmentPlugin = require('./node/NodeEnvironmentPlugin');
+const WebpackOptionsApply  =  require('./WebpackOptionsApply');
 const webpack  = (options, callback) => {
   let compiler  = new Compiler(options.context); // 创建一个compiler实例
   compiler.options = options;
@@ -10,6 +11,7 @@ const webpack  = (options, callback) => {
       plugin.apply(compiler);
     }
   }
+  new WebpackOptionsApply().process(options, compiler);
   return compiler;
 }
 

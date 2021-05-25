@@ -6,11 +6,10 @@ compiler.run((err, stats) => {
   console.log(err); 
   console.log(
     stats.toJson({
-      entries: true,
-      chunks: true,
-      modules: true,
-      _modules: true,
-      assets: true
+      entries: true, // 显示所有入口
+      chunks: true, // 显示所有代码块
+      modules: true, // 显示所有模块
+      assets: true //显示所有打包好的文件
     })
   )
 })
