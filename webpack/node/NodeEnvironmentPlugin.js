@@ -1,11 +1,11 @@
 const fs = require('fs');
-class NodeEnvironmentPlugin{
-  constructor(options){
+class NodeEnvironmentPlugin {
+  constructor(options) {
     this.options = options || {};
   }
-  apply(compiler){
+  apply(compiler) {
     compiler.inputFileSystem = fs;
     compiler.outputFileSystem = fs;
   }
 }
-exports.default = NodeEnvironmentPlugin;
+module.exports = NodeEnvironmentPlugin;

@@ -1,14 +1,14 @@
-const SingleEntryPlugin = require("./SingleEntryPlugin")
+const SingleEntryPlugin = require('./SingleEntryPlugin');
 
 const itemToPlugin = (context, item, name)=>{
   //  单入口插件
   return new SingleEntryPlugin(context, item, name);
-}
-class EntryOptionPlugin{
-  apply(compiler){
+};
+class EntryOptionPlugin {
+  apply(compiler) {
     compiler.hooks.entryOption.tap('EntryOptionPlugin', (context, entry)=>{
-      itemToPlugin(context, entry, 'main').apply(compiler)
-    })
+      itemToPlugin(context, entry, 'main').apply(compiler);
+    });
   }
 }
-module.exports = EntryOptionPlugin
+module.exports = EntryOptionPlugin;
