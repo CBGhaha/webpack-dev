@@ -1,9 +1,8 @@
-const webpack  = require('../webpack/index');
-const webpackOptions  = require('./webpack.config.js');
+const webpack = require('../webpack/index');
+const webpackOptions = require('./webpack.config.js');
 // debugger;
 const compiler = webpack(webpackOptions);
 compiler.run((err, stats) => {
-  console.log(err); 
   console.log(
     stats.toJson({
       entries: true, // 显示所有入口
@@ -11,5 +10,5 @@ compiler.run((err, stats) => {
       modules: true, // 显示所有模块
       assets: true //显示所有打包好的文件
     })
-  )
-})
+  );
+});

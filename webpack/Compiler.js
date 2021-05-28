@@ -3,13 +3,14 @@
 const { Tapable, AsyncSeriesHook, SyncHook, AsyncParallelHook, SyncBailHook } = require('tapable');
 const Compilation = require('./Compilation');
 const NormalModuleFactory = require('./NormalModuleFactory');
+const Stats = require('./Stats');
 class Compiler extends Tapable {
   constructor(context) {
     super();
     this.context = context;
     this.hooks = {
       done: new AsyncSeriesHook(['stats']),
-      entryOption: new SyncBailHook('context', 'entry'),
+      entryOption: new SyncBailHook(['context', 'entry']),
       beforeRun: new AsyncSeriesHook(['compiler']), // 运行前
       run: new AsyncSeriesHook(['compiler']), // 运行
       beforeCompile: new AsyncSeriesHook(['params']), // 编译前
@@ -27,12 +28,7 @@ class Compiler extends Tapable {
     };
     const onCompiled = (err, compilation) => {
       console.log('onCompiled');
-      finalCallback(err, {
-        entries: [], // 显示所有入口
-        chunks: [], // 显示所有代码块
-        modules: [], // 显示所有模块
-        assets: [] //显示所有打包好的文件
-      });
+      finalCallback(err, new Stats(compilation));
     };
     this.hooks.beforeRun.callAsync(this, err=>{
       this.hooks.run.callAsync(this, err=>{
@@ -48,7 +44,14 @@ class Compiler extends Tapable {
       console.log('make');
       this.hooks.make.callAsync(compilation, err=>{
         console.log('make完成');
-        callback();
+
+        // 开始代码块封装
+        compilation.seal(err=>{
+          this.hooks.afterCompile.callAsync(compilation, ()=>{
+            callback(err, compilation);
+          });
+        });
+
       });
     });
   }
