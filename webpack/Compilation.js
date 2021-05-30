@@ -3,6 +3,11 @@ const path = require('path');
 const Parser = require('./parser');
 const parser = new Parser();
 const NormalModuleFactory = require('./NormalModuleFactory');
+const Chunk = require('./Chunk');
+const ejs = require('ejs');
+const fs = require('fs');
+const mainTemplate = fs.readFileSync(path.join(__dirname, 'templatce/main.ejs'), 'utf8');
+const mainRender = ejs.compile(mainTemplate);
 const normalModuleFactory = new NormalModuleFactory();
 class Compilation extends Tapable {
   constructor(compiler) {
@@ -14,9 +19,15 @@ class Compilation extends Tapable {
     this.outputFileSystem = compiler.outputFileSystem;
     this.entries = []; // 入口的数组
     this.modules = []; // 模块的数组
+    this.chunks = []; // 代码块数组
+    this.files = [];// 本地编译所有产出的文件名
+    this.assets = {}; // 存放生成的资源 key是文件名 值是文件内容
     this.hooks = {
       // 当成功构建完一个模块后 就会触发此钩子执行
-      succeedModule: new SyncHook(['module'])
+      succeedModule: new SyncHook(['module']),
+      seal: new SyncHook(),
+      beforeChunks: new SyncHook(),
+      afterChunks: new SyncHook()
     };
   }
   /**
@@ -88,7 +99,33 @@ class Compilation extends Tapable {
    * @param {*} callback
    */
   seal(callback) {
-
+    console.log('开始seal');
+    this.hooks.seal.call();
+    this.hooks.beforeChunks.call();
+    for (const entryModule of this.entries) {
+      const chunk = new Chunk(entryModule);
+      this.chunks.push(chunk);
+      chunk.modules = this.modules.filter(module=>module.name === chunk.name);
+    }
+    this.hooks.afterChunks.call(this.chunks);
+    this.createChunkAsset();
+    callback();
+  }
+  createChunkAsset() {
+    for (let chunk of this.chunks) {
+      const file = chunk.name + '.js';
+      chunk.files.push(file);
+      // console.log('chunk.modules:', chunk.modules);
+      let source = mainRender({
+        entryModuleId: chunk.entryModule.moduleId,
+        modules: chunk.modules
+      });
+      this.emitAssets(file, source);
+    }
+  }
+  emitAssets(file, source) {
+    this.assets[file] = source;
+    this.files.push(file);
   }
 }
 module.exports = Compilation;

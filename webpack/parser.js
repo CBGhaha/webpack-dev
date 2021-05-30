@@ -2,7 +2,6 @@ const { Tapable, AsyncSeriesHook, SyncHook, AsyncParallelHook, SyncBailHook } = 
 const babylon = require('babylon');
 class Parser extends Tapable {
   parse(source) {
-    console.log('source:', source);
     return babylon.parse(source, {
       sourceType: 'module', // 源代码是一个模块
       plugins: ['dynamicImport'] // 额外插件 支持import(./xxx.js)

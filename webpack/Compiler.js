@@ -4,12 +4,14 @@ const { Tapable, AsyncSeriesHook, SyncHook, AsyncParallelHook, SyncBailHook } = 
 const Compilation = require('./Compilation');
 const NormalModuleFactory = require('./NormalModuleFactory');
 const Stats = require('./Stats');
+const mkdirp = require('mkdirp');
+const path = require('path');
 class Compiler extends Tapable {
-  constructor(context) {
+  constructor(options) {
     super();
-    this.context = context;
+    this.options = options;
+    this.context = options.context;
     this.hooks = {
-      done: new AsyncSeriesHook(['stats']),
       entryOption: new SyncBailHook(['context', 'entry']),
       beforeRun: new AsyncSeriesHook(['compiler']), // 运行前
       run: new AsyncSeriesHook(['compiler']), // 运行
@@ -18,7 +20,9 @@ class Compiler extends Tapable {
       make: new AsyncParallelHook(['compilation']), // make构建
       thisCompilation: new SyncHook(['compilation', 'params']), // 开始一次新的编译
       compilation: new SyncHook(['compilation', 'params']), // 创建完成一个新的compilation
-      afterCompile: new AsyncSeriesHook(['compilation']) // 编译完成
+      afterCompile: new AsyncSeriesHook(['compilation']), // 编译完成
+      emit: new AsyncSeriesHook(['compilation']), // 写入文件
+      done: new AsyncSeriesHook(['stats'])
     };
   }
   run(callback) {
@@ -28,7 +32,14 @@ class Compiler extends Tapable {
     };
     const onCompiled = (err, compilation) => {
       console.log('onCompiled');
-      finalCallback(err, new Stats(compilation));
+      // 把chunk变成文件 写入硬盘
+
+      this.emitAssets(compilation, (err)=>{
+        let stats = new Stats(compilation);
+        this.hooks.done.callAsync(stats, err=>{
+          finalCallback(err, stats);
+        });
+      });
     };
     this.hooks.beforeRun.callAsync(this, err=>{
       this.hooks.run.callAsync(this, err=>{
@@ -53,6 +64,21 @@ class Compiler extends Tapable {
         });
 
       });
+    });
+  }
+  emitAssets(compilation, callback) {
+    const emitFiles = (err)=>{
+      const assets = compilation.assets;
+      const outputPath = this.options.output.path;
+      for (let file in assets) {
+        let source = assets[file];
+        const targetPath = path.posix.join(outputPath, file);
+        this.outputFileSystem.writeFileSync(targetPath, source, 'utf8');
+      }
+      callback();
+    };
+    this.hooks.emit.callAsync(compilation, ()=>{
+      mkdirp(this.options.output.path, emitFiles);
     });
   }
   newCompilationParams() {

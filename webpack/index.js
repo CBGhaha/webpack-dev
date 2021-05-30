@@ -2,7 +2,7 @@ const Compiler = require('./Compiler');
 const NodeEnvironmentPlugin = require('./node/NodeEnvironmentPlugin');
 const WebpackOptionsApply = require('./WebpackOptionsApply');
 const webpack = (options, callback) => {
-  let compiler = new Compiler(options.context); // 创建一个compiler实例
+  let compiler = new Compiler(options); // 创建一个compiler实例
   compiler.options = options;
   new NodeEnvironmentPlugin().apply(compiler); // 让compiler实例拥有读写文件的权限
   // 挂载配置文件里所有的plugins
