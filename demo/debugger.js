@@ -1,3 +1,4 @@
+// const webpack = require('webpack');
 const webpack = require('../webpack/index');
 const webpackOptions = require('./webpack.config.js');
 // debugger;
