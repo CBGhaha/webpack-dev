@@ -6,8 +6,13 @@ const NormalModuleFactory = require('./NormalModuleFactory');
 const Chunk = require('./Chunk');
 const ejs = require('ejs');
 const fs = require('fs');
+
 const mainTemplate = fs.readFileSync(path.join(__dirname, 'templatce/main.ejs'), 'utf8');
 const mainRender = ejs.compile(mainTemplate);
+
+const chunkTemplate = fs.readFileSync(path.join(__dirname, 'templatce/chunk.ejs'), 'utf8');
+const chunkRender = ejs.compile(chunkTemplate);
+
 const normalModuleFactory = new NormalModuleFactory();
 class Compilation extends Tapable {
   constructor(compiler) {
@@ -34,11 +39,11 @@ class Compilation extends Tapable {
    * 开始编译一个新的入口
    */
   addEntry(context, entry, name, callback) {
-    this._addModuleChain(context, entry, name, (err, module) => {
+    this._addModuleChain(context, entry, name, false, (err, module) => {
       callback(err, module);
     });
   }
-  _addModuleChain(context, entry, name, callback) {
+  _addModuleChain(context, entry, name, async, callback) {
     const resource = path.posix.join(context, entry);
     // 通过模块工厂创建一个模块
     let entryModule = normalModuleFactory.create({
@@ -47,6 +52,7 @@ class Compilation extends Tapable {
       rawRequest: entry,
       resource, // 模块的绝对路径
       parser,
+      async,
       moduleId: './' + path.posix.relative(context, resource)
     });
     this.entries.push(entryModule);
@@ -115,11 +121,22 @@ class Compilation extends Tapable {
     for (let chunk of this.chunks) {
       const file = chunk.name + '.js';
       chunk.files.push(file);
+      let source;
+      // 如果是异步的chunk
+      if (chunk.async) {
+        source = chunkRender({
+          chunkName: chunk.name,
+          modules: chunk.modules
+        });
+      //
+      } else {
+        source = mainRender({
+          entryModuleId: chunk.entryModule.moduleId,
+          modules: chunk.modules
+        });
+      }
       // console.log('chunk.modules:', chunk.modules);
-      let source = mainRender({
-        entryModuleId: chunk.entryModule.moduleId,
-        modules: chunk.modules
-      });
+
       this.emitAssets(file, source);
     }
   }

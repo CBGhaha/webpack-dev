@@ -2,6 +2,7 @@ class Chunk {
   constructor(entryModule) {
     this.entryModule = entryModule;
     this.name = entryModule.name;
+    this.async = entryModule.async;
     this.files = []; // 这个代码块生成的文件
     this.modules = [];// chunk包含的模块
   }

@@ -5,7 +5,7 @@ const traverse = require('babel-traverse').default; // 根据ast生成代码
 
 class NormalModule {
   constructor(data) {
-    const { name, context, rawRequest, moduleId, resource, parser } = data;
+    const { name, context, rawRequest, moduleId, resource, parser, async } = data;
     this.name = name;
     this.context = context;
     this.rawRequest = rawRequest;
@@ -15,6 +15,10 @@ class NormalModule {
     this._source; // 此模块对应的源码
     this._ast; //此模块对应的ast抽象语法树
     this.dependencies = [];
+    // 当前模块依赖哪些异步模块
+    this.blocks = [];
+    // 当前模块是属于异步还是同步代码块
+    this.async = async;
   }
   build(compilation, callback) {
     this.doBuild(compilation, (err)=>{
@@ -29,10 +33,17 @@ class NormalModule {
           if (node.callee.name === 'require') { // 如果方法名是一个require方法的话
             node.callee.name = '__webpack_require__'; // 将源码里的require函数变成__webpack_require__
             let moduleName = node.arguments[0].value; // 模块的名称
-            // 判断moduleName是有文件名后缀
-            // const extName = moduleName.split(path.posix.sep).pop().indexof('.') === -1;
-            let depResource = path.posix.join(path.posix.dirname(this.resource), moduleName);// 模块的绝对地址
-            let depModuleId = './' + path.posix.relative(this.context, depResource); // 模块的id
+            let depResource; //  模块的绝对路径
+
+            // 如果是自定义模块
+            if(moduleName.startsWith('.')){
+              depResource = path.posix.join(path.posix.dirname(this.resource), moduleName);// 模块的绝对地址
+            }else{
+            // 如果是第三方模块
+              depResource = require.resolve(path.posix.join(this.context,'node_modules', moduleName));
+            }
+
+           let depModuleId = './' + path.posix.relative(this.context, depResource); // 模块的id
 
             /**
              * 将源码里的相对当前文件的地址变成相对执行目录的地址
@@ -48,14 +59,48 @@ class NormalModule {
               moduleId: depModuleId,
               resource: depResource
             });
+          //
+          } else if (types.isImport(node.callee)) {
+            let moduleName = node.arguments[0].value;
+            let depResource = path.posix.join(path.posix.dirname(this.resource), moduleName);// 模块的绝对地址
+            let depModuleId = './' + path.posix.relative(this.context, depResource); // 模块的id
+            let leadingComments = node.arguments[0].leadingComments[0].value; /* webpackChunkName: "title" */
+            const regexp = new RegExp(/(?<=webpackChunkName\s*:\s*)["'](\S+)["']/);
+            const chunkName = leadingComments.match(regexp)[1]; // 获取chunkFilename
+            // 替换ast 将import替换成webpack的执行代码
+            nodePath.replaceWithSourceString(`__webpack_require__.e('${chunkName}').then(__webpack_require__.t.bind(null, '${depModuleId}', 7))`) 
+            this.blocks.push({
+              name: chunkName,
+              context: this.context,
+              // rawRequest: moduleName,
+              entry: depModuleId,
+              // resource: depResource,
+              async: true
+            });
           }
 
         }
       });
       let { code } = generate(this._ast);
       this._source = code;
-      callback(err);
-
+      // 循环构建异步依赖模块 异步模块会抽离成一个新的代码块
+      // context, entry, name, async, callback
+      const blockBuildTasks =  this.blocks.map((block)=>{
+        return new Promise((resolve, reject)=>{
+          const {context, entry, name, async} = block;
+          compilation._addModuleChain(context, entry, name, async,(err, module)=>{
+            if(err){
+              reject(err)
+            }else{
+              resolve(module)
+            }
+          })
+        })
+      })
+      Promise.all(blockBuildTasks).then(res=>{
+        callback(err);
+      }).catch(err=>{
+      })
     });
   }
   /**
@@ -92,3 +137,9 @@ module.exports = NormalModule;
  * 不管是相对的本地模块，还是第三方模块
  * 最后它的moduleID全都是一个相对于项目根目录的相对路径
  */
+/**
+ * 如何处理懒加载
+ * 1:先把代码转成AST语法树
+ * 2:找出动态import节点
+ *
+*/
