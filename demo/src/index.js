@@ -1,6 +1,12 @@
+
+const title = require('./title.js');
+const style = require('./index.less');
+console.log('title:', title);
+
 import(/* webpackChunkName: "async" */'./async.js').then(res=>{
   console.log("async:", res.default);
 })
-const title = require('./title.js');
-console.log('title:', title);
-const isarrayc = require('isarray');
+import(/* webpackChunkName: "async2" */'./async2.js').then(res=>{
+  console.log("async2:", res.default);
+})
+// const isarrayc = require('isarray');

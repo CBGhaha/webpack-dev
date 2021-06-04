@@ -6,6 +6,10 @@ const NormalModuleFactory = require('./NormalModuleFactory');
 const Stats = require('./Stats');
 const mkdirp = require('mkdirp');
 const path = require('path');
+
+/**
+ * Tapable有plugin方法 会找寻this.hooks 并在对应钩子中挂载回调
+ */
 class Compiler extends Tapable {
   constructor(options) {
     super();

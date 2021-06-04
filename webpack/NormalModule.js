@@ -2,7 +2,7 @@ const path = require('path');
 const types = require('babel-types');
 const generate = require('babel-generator').default; // ast => ast
 const traverse = require('babel-traverse').default; // 根据ast生成代码
-
+const  { runLoaders }  = require('loader-runner');
 class NormalModule {
   constructor(data) {
     const { name, context, rawRequest, moduleId, resource, parser, async } = data;
@@ -36,14 +36,14 @@ class NormalModule {
             let depResource; //  模块的绝对路径
 
             // 如果是自定义模块
-            if(moduleName.startsWith('.')){
+            if (moduleName.startsWith('.')) {
               depResource = path.posix.join(path.posix.dirname(this.resource), moduleName);// 模块的绝对地址
-            }else{
+            } else {
             // 如果是第三方模块
-              depResource = require.resolve(path.posix.join(this.context,'node_modules', moduleName));
+              depResource = require.resolve(path.posix.join(this.context, 'node_modules', moduleName));
             }
 
-           let depModuleId = './' + path.posix.relative(this.context, depResource); // 模块的id
+            let depModuleId = './' + path.posix.relative(this.context, depResource); // 模块的id
 
             /**
              * 将源码里的相对当前文件的地址变成相对执行目录的地址
@@ -59,7 +59,7 @@ class NormalModule {
               moduleId: depModuleId,
               resource: depResource
             });
-          //
+          // 如果是异步import（）
           } else if (types.isImport(node.callee)) {
             let moduleName = node.arguments[0].value;
             let depResource = path.posix.join(path.posix.dirname(this.resource), moduleName);// 模块的绝对地址
@@ -68,7 +68,7 @@ class NormalModule {
             const regexp = new RegExp(/(?<=webpackChunkName\s*:\s*)["'](\S+)["']/);
             const chunkName = leadingComments.match(regexp)[1]; // 获取chunkFilename
             // 替换ast 将import替换成webpack的执行代码
-            nodePath.replaceWithSourceString(`__webpack_require__.e('${chunkName}').then(__webpack_require__.t.bind(null, '${depModuleId}', 7))`) 
+            nodePath.replaceWithSourceString(`__webpack_require__.e('${chunkName}').then(__webpack_require__.t.bind(null, '${depModuleId}', 7))`);
             this.blocks.push({
               name: chunkName,
               context: this.context,
@@ -85,22 +85,22 @@ class NormalModule {
       this._source = code;
       // 循环构建异步依赖模块 异步模块会抽离成一个新的代码块
       // context, entry, name, async, callback
-      const blockBuildTasks =  this.blocks.map((block)=>{
+      const blockBuildTasks = this.blocks.map((block)=>{
         return new Promise((resolve, reject)=>{
-          const {context, entry, name, async} = block;
-          compilation._addModuleChain(context, entry, name, async,(err, module)=>{
-            if(err){
-              reject(err)
-            }else{
-              resolve(module)
+          const { context, entry, name, async } = block;
+          compilation._addModuleChain(context, entry, name, async, (err, module)=>{
+            if (err) {
+              reject(err);
+            } else {
+              resolve(module);
             }
-          })
-        })
-      })
+          });
+        });
+      });
       Promise.all(blockBuildTasks).then(res=>{
         callback(err);
       }).catch(err=>{
-      })
+      });
     });
   }
   /**
@@ -109,12 +109,37 @@ class NormalModule {
    * @param {*} cb
    */
   doBuild(compilation, cb) {
-    this.getSource(compilation, (err, source)=>{
-      // 把最原始的代码存放到_source
-      // loader在此处执行
-      this._source = source;
-      cb(err);
-    });
+    const { module: { rules }, resolveLoader } = compilation.options;
+    let loaders = [];
+    for (let i = 0;i < rules.length;i++) {
+      let rule = rules[i];
+      if(rule.test.test(this.resource)){
+        loaders.push(...rule.use);
+      }
+    }
+    const loaderPath = (loader)=>{
+      return require.resolve(path.posix.join(this.context, resolveLoader.modules, `${loader}.js`));
+    }
+    if(loaders.length){
+      loaders = loaders.map(loaderPath)
+      runLoaders({
+        resource: this.resource,
+        loaders
+      },(err, {result})=>{
+        console.log("loaders-result:", result.toString());
+        this._source = result.toString();
+        cb(err);
+      })
+  
+    }else{
+      this.getSource(compilation, (err, source)=>{
+        // 把最原始的代码存放到_source
+        this._source =source;
+        cb(err);
+      });
+    }
+    
+   
   }
   /**
    * 读取真正的源代码
